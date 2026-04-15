@@ -137,8 +137,8 @@ const startupGauge = new Prometheus.Gauge({
 })
 
 // Wraps the function and measures its (async) execution time
-const collectDurationPromise = (name: string, func: (...args: any) => Promise<any>) => {
-  return async (...args: any) => {
+const collectDurationPromise = <T, Args extends any[]>(name: string, func: (...args: Args) => Promise<T>) => {
+  return async (...args: Args): Promise<T> => {
     const end = startupGauge.startTimer({ task: name })
     try {
       const res = await func(...args)
@@ -327,7 +327,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
   app.use('/rest/user/reset-password', new RateLimit({
     windowMs: 5 * 60 * 1000,
     max: 100,
-    keyGenerator ({ headers, ip }: { headers: any, ip: any }) { return headers['X-Forwarded-For'] ?? ip } // vuln-code-snippet vuln-line resetPasswordMortyChallenge
+    keyGenerator ({ headers, ip }: { headers: Request['headers'], ip: string }) { return headers['X-Forwarded-For'] ?? ip } // vuln-code-snippet vuln-line resetPasswordMortyChallenge
   }))
   // vuln-code-snippet end resetPasswordMortyChallenge
 
@@ -484,7 +484,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
     // create a wallet when a new user is registered using API
     if (name === 'User') { // vuln-code-snippet neutral-line registerAdminChallenge
-      resource.create.send.before((req: Request, res: Response, context: { instance: { id: any }, continue: any }) => { // vuln-code-snippet vuln-line registerAdminChallenge
+      resource.create.send.before((req: Request, res: Response, context: { instance: { id: number | string }, continue: unknown }) => { // vuln-code-snippet vuln-line registerAdminChallenge
         WalletModel.create({ UserId: context.instance.id }).catch((err: unknown) => {
           console.log(err)
         })
@@ -495,7 +495,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
     // translate challenge descriptions and hints on-the-fly
     if (name === 'Challenge') {
-      resource.list.fetch.after((req: Request, res: Response, context: { instance: string | any[], continue: any }) => {
+      resource.list.fetch.after((req: Request, res: Response, context: { instance: any[], continue: unknown }) => {
         for (let i = 0; i < context.instance.length; i++) {
           let description = context.instance[i].description
           if (utils.contains(description, '<em>(This challenge is <strong>')) {
@@ -511,7 +511,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
         }
         return context.continue
       })
-      resource.read.send.before((req: Request, res: Response, context: { instance: { description: string, hint: string }, continue: any }) => {
+      resource.read.send.before((req: Request, res: Response, context: { instance: { description: string, hint: string }, continue: unknown }) => {
         context.instance.description = req.__(context.instance.description)
         if (context.instance.hint) {
           context.instance.hint = req.__(context.instance.hint)
@@ -522,13 +522,13 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
     // translate security questions on-the-fly
     if (name === 'SecurityQuestion') {
-      resource.list.fetch.after((req: Request, res: Response, context: { instance: string | any[], continue: any }) => {
+      resource.list.fetch.after((req: Request, res: Response, context: { instance: any[], continue: unknown }) => {
         for (let i = 0; i < context.instance.length; i++) {
           context.instance[i].question = req.__(context.instance[i].question)
         }
         return context.continue
       })
-      resource.read.send.before((req: Request, res: Response, context: { instance: { question: string }, continue: any }) => {
+      resource.read.send.before((req: Request, res: Response, context: { instance: { question: string }, continue: unknown }) => {
         context.instance.question = req.__(context.instance.question)
         return context.continue
       })
@@ -536,14 +536,14 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
     // translate product names and descriptions on-the-fly
     if (name === 'Product') {
-      resource.list.fetch.after((req: Request, res: Response, context: { instance: any[], continue: any }) => {
+      resource.list.fetch.after((req: Request, res: Response, context: { instance: any[], continue: unknown }) => {
         for (let i = 0; i < context.instance.length; i++) {
           context.instance[i].name = req.__(context.instance[i].name)
           context.instance[i].description = req.__(context.instance[i].description)
         }
         return context.continue
       })
-      resource.read.send.before((req: Request, res: Response, context: { instance: { name: string, description: string }, continue: any }) => {
+      resource.read.send.before((req: Request, res: Response, context: { instance: { name: string, description: string }, continue: unknown }) => {
         context.instance.name = req.__(context.instance.name)
         context.instance.description = req.__(context.instance.description)
         return context.continue
@@ -551,7 +551,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
     }
 
     // fix the api difference between finale (fka epilogue) and previously used sequlize-restful
-    resource.all.send.before((req: Request, res: Response, context: { instance: { status: string, data: any }, continue: any }) => {
+    resource.all.send.before((req: Request, res: Response, context: { instance: { status: string, data: any }, continue: unknown }) => {
       context.instance = {
         status: 'success',
         data: context.instance
@@ -652,14 +652,14 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
 const multer = require('multer')
 const uploadToMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200000 } })
-const mimeTypeMap: any = {
+const mimeTypeMap: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg'
 }
 const uploadToDisk = multer({
   storage: multer.diskStorage({
-    destination: (req: Request, file: any, cb: any) => {
+    destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
       const isValid = mimeTypeMap[file.mimetype]
       let error: Error | null = new Error('Invalid mime type')
       if (isValid) {
@@ -667,7 +667,7 @@ const uploadToDisk = multer({
       }
       cb(error, path.resolve('frontend/dist/frontend/assets/public/images/uploads/'))
     },
-    filename: (req: Request, file: any, cb: any) => {
+    filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
       const name = security.sanitizeFilename(file.originalname)
         .toLowerCase()
         .split(' ')
@@ -686,7 +686,7 @@ logger.info(`Entity models ${colors.bold(Object.keys(sequelize.models).length.to
 
 // vuln-code-snippet start exposedMetricsChallenge
 /* Serve metrics */
-let metricsUpdateLoop: any
+let metricsUpdateLoop: NodeJS.Timeout
 const Metrics = metrics.observeMetrics() // vuln-code-snippet neutral-line exposedMetricsChallenge
 app.get('/metrics', metrics.serveMetrics()) // vuln-code-snippet vuln-line exposedMetricsChallenge
 errorhandler.title = `${config.get<string>('application.name')} (Express ${utils.version('express')})`
