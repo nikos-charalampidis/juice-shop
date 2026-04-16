@@ -137,7 +137,7 @@ const startupGauge = new Prometheus.Gauge({
 })
 
 // Wraps the function and measures its (async) execution time
-const collectDurationPromise = <T, Args extends any[]>(name: string, func: (...args: Args) => Promise<T>) => {
+const collectDurationPromise = <T, Args extends unknown[]>(name: string, func: (...args: Args) => Promise<T>) => {
   return async (...args: Args): Promise<T> => {
     const end = startupGauge.startTimer({ task: name })
     try {
@@ -495,7 +495,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
     // translate challenge descriptions and hints on-the-fly
     if (name === 'Challenge') {
-      resource.list.fetch.after((req: Request, res: Response, context: { instance: any[], continue: unknown }) => {
+      resource.list.fetch.after((req: Request, res: Response, context: { instance: ChallengeModel[], continue: unknown }) => {
         for (let i = 0; i < context.instance.length; i++) {
           let description = context.instance[i].description
           if (utils.contains(description, '<em>(This challenge is <strong>')) {
@@ -522,7 +522,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
     // translate security questions on-the-fly
     if (name === 'SecurityQuestion') {
-      resource.list.fetch.after((req: Request, res: Response, context: { instance: any[], continue: unknown }) => {
+      resource.list.fetch.after((req: Request, res: Response, context: { instance: SecurityQuestionModel[], continue: unknown }) => {
         for (let i = 0; i < context.instance.length; i++) {
           context.instance[i].question = req.__(context.instance[i].question)
         }
@@ -536,7 +536,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
     // translate product names and descriptions on-the-fly
     if (name === 'Product') {
-      resource.list.fetch.after((req: Request, res: Response, context: { instance: any[], continue: unknown }) => {
+      resource.list.fetch.after((req: Request, res: Response, context: { instance: ProductModel[], continue: unknown }) => {
         for (let i = 0; i < context.instance.length; i++) {
           context.instance[i].name = req.__(context.instance[i].name)
           context.instance[i].description = req.__(context.instance[i].description)
@@ -551,7 +551,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
     }
 
     // fix the api difference between finale (fka epilogue) and previously used sequlize-restful
-    resource.all.send.before((req: Request, res: Response, context: { instance: { status: string, data: any }, continue: unknown }) => {
+    resource.all.send.before((req: Request, res: Response, context: { instance: { status: string, data: unknown }, continue: unknown }) => {
       context.instance = {
         status: 'success',
         data: context.instance
